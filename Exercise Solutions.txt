@@ -1,0 +1,154 @@
+# This file contains solutions to the questions in the RMEF2023 session "What is Topological Data Analysis Ball Mapper?"
+
+# Note that you will also need the following lines of code from the main file in order to attempt the questions
+
+
+library(dplyr)
+library(BallMapper)
+
+setwd("D://rmef/")
+
+dtx<-read.csv("rmef2023.csv",header=TRUE)
+
+dty<-cbind(dtx[,1:2],dtx$QualLevel1,dtx$Deprivation2Plus,dtx$Manufacturing,dtx$Single,dtx$HealthVeryGood,dtx$SocialRental)
+names(dty)<-c("geog","geogcode","QualLevel1","Deprivation2","Manufacturing","Single","HealthLow","SocialRental")
+
+dty$HL4<-as.numeric(dty$HealthLow>quantile(dty$HealthLow,0.75)) 
+
+dty0<-subset(dty,dty$HL4==0)
+dty1<-subset(dty,dty$HL4==1)
+
+##########
+# Part A #
+##########
+
+# Question 1 - Discussion
+# Question 2 - cor(dty[,3:9])
+# Question 3 - Discussion of graph
+# Question 4 - Discussion
+# Question 5 - Repeat the analysis with single and manufacturing
+
+png("SingleManufacturing.png")
+plot(dty$Single,dty$Manufacturing,pch=16,xlab="Single",ylab="Manufacturing") 
+dev.off()
+
+png("SingleManufacturing1.png")
+plot(dty$Single,dty$Manufacturing,pch=16,xlab="Single",ylab="Manufacturing") 
+points(dty0$Single,dty0$Manufacturing,pch=16,col="black")
+points(dty1$Single,dty1$Manufacturing,pch=16,col="blue")
+leg.text=c("Quartiles 1 to 3","Upper Quartile")
+legend("topright",leg.text,pch=16,col=c("black","blue"))
+dev.off()
+
+# Note that the location of the legend has been changed to the top right
+
+# Question 6 - Repeat the analysis with Qualification Level 1 and Social Rental
+
+png("QualLevel1Social.png")
+plot(dty$QualLevel1,dty$SocialRental,pch=16,xlab="Qualification Level 1",ylab="Social Rental") 
+dev.off()
+
+png("QualLevel1Social1.png")
+plot(dty$QualLevel1,dty$SocialRental,pch=16,xlab="Qualification Level 1",ylab="Social Rental")  
+points(dty0$QualLevel1,dty0$SocialRental,pch=16,col="black")
+points(dty1$QualLevel1,dty1$SocialRental,pch=16,col="blue")
+leg.text=c("Quartiles 1 to 3","Upper Quartile")
+legend("topright",leg.text,pch=16,col=c("black","blue"))
+dev.off()
+
+# Note that the location of the legend has again been changed to the top right
+
+##########
+# Part B #
+##########
+
+# The following codes are needed to ensure that the data is ready to answer the questions
+
+y1<-as.data.frame(dty$HealthLow)
+y2<-as.data.frame(dty$HL4)
+
+x1<-as.data.frame(cbind.data.frame(dty$QualLevel1,dty$Deprivation2,dty$Manufacturing,dty$Single,dty$SocialRental))
+
+# Normalise the axis variables. You may explore what happens if the variables are not normalised by ommitting this step and using values of the ball radius about 8 times the numbers used in this code
+
+x2<-normalize_to_min_0_max_1(x1)
+
+# Question 7 - Consistent with expectations. Higher radius means fewer balls.
+# Question 8 - Consistent with levels
+# Question 9 - Need to create plots at different radii using code below:
+
+bm225<-BallMapper(x2,y2,0.25)
+bm230<-BallMapper(x2,y2,0.30)
+bm235<-BallMapper(x2,y2,0.35)
+bm240<-BallMapper(x2,y2,0.40)
+bm245<-BallMapper(x2,y2,0.45)
+bm250<-BallMapper(x2,y2,0.50)
+
+ColorIgraphPlot(bm225,seed_for_plotting=123)
+ColorIgraphPlot(bm230,seed_for_plotting=123)
+ColorIgraphPlot(bm235,seed_for_plotting=123)
+ColorIgraphPlot(bm240,seed_for_plotting=123)
+ColorIgraphPlot(bm245,seed_for_plotting=123)
+ColorIgraphPlot(bm250,seed_for_plotting=123)
+
+# Results are consistent with the plots for the different levels
+
+# Question 10: We can compare the axis colours with the outcome colours
+
+# We need to now create the ball membership list. The following code is therefore necessary to complete the final question:
+
+points_to_balls<-function(l){
+  a001<-length(l$landmarks)
+  a1<-matrix(0,nrow=a001,ncol=2)
+  a1<-as.data.frame(a1)
+  names(a1)<-c("pt","ball")
+  for(i in 1:a001){
+    a<-as.data.frame(l$points_covered_by_landmarks[i])
+    names(a)<-"pt"
+    a$ball<-i
+    a1<-rbind.data.frame(a1,a)
+   }
+  a1<-a1[2:nrow(a1),]
+  return(a1)
+}
+
+
+dty$pt<-seq(1:nrow(dty))
+bmp1<-points_to_balls(bm1)
+bmp1<-as.data.frame(bmp1)
+names(bmp1)<-c("pt","ball")
+
+dtz<-merge(dty,bmp1,by="pt")
+
+# Question 11:
+
+ball22<-subset(dtz,dtz$ball==22)
+ball22
+
+# Question 12:
+
+ball13<-subset(dtz,dtz$ball==13)
+ball13
+
+# Question 13:
+
+# To produce summary statistics for a ball we can use the summary statistics function and apply it to the subset
+
+sstatsmat<-function(characteristics,decp){
+ if(missing(decp)) decp <- 2
+ a001<-ncol(characteristics)
+ sstats<-matrix(0,nrow=a001,ncol=5)
+ for(i in 1:a001){
+  j<-i
+  sstats[i,1]<-names(characteristics)[j]
+  sstats[i,2]<-round(mean(characteristics[,j]),decp)
+  sstats[i,3]<-round(sd(characteristics[,j]),decp)
+  sstats[i,4]<-round(min(characteristics[,j]),decp)
+  sstats[i,5]<-round(max(characteristics[,j]),decp)
+ }
+ return(sstats)
+}
+
+# Note that when producing the summary statistics there is a column with the point identifier "pt", so we start our summary statistics in column 4.
+
+sstatsmat(ball13[,4:10])

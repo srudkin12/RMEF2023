@@ -1,0 +1,217 @@
+## THIS CODE FILE ACCOMPANIES THE "WHAT IS TOPOLIGICAL DATA ANALYSIS BALL MAPPER?" SESSION FROM RMEF2023 
+#
+# To use the code you should have a folder which already contains the rmef2023.csv file
+
+# If you do not have the dplyr and BallMapper packages installed then this first section of code will install them. Note that it is commented out so to use it you need to delete the # 
+
+# install.packages("dplyr")
+# install.packages("BallMapper")
+
+# Read in the necessary packages
+
+library(dplyr)
+library(BallMapper)
+
+# Set working directory
+
+setwd("D://rmef/")
+
+# Read in data
+
+dtx<-read.csv("rmef2023.csv",header=TRUE)
+
+# View correlation matrix
+
+cor(dtx[,3:ncol(dtx)])
+
+# We will work with a smaller matrix for the examples. We bind together the relevant columns:
+
+dty<-cbind(dtx[,1:2],dtx$QualLevel1,dtx$Deprivation2Plus,dtx$Manufacturing,dtx$Single,dtx$HealthVeryGood,dtx$SocialRental)
+
+# And then provide the names:
+
+names(dty)<-c("geog","geogcode","QualLevel1","Deprivation2","Manufacturing","Single","HealthLow","SocialRental")
+
+# Create a low health dummy (HL4) which takes the value 1 when the proportion of residents reporting low health is above the upper quartile
+
+dty$HL4<-as.numeric(dty$HealthLow>quantile(dty$HealthLow,0.75)) 
+
+# To produce the summary statistics we apply a user generated code file. This file was written by Dr Simon Rudkin in 2020. Any similarities to other code is unintentional and if there is a source which requires referencing then please get in touch.
+
+sstatsmat<-function(characteristics,decp){
+ if(missing(decp)) decp <- 2
+ a001<-ncol(characteristics)
+ sstats<-matrix(0,nrow=a001,ncol=5)
+ for(i in 1:a001){
+  j<-i
+  sstats[i,1]<-names(characteristics)[j]
+  sstats[i,2]<-round(mean(characteristics[,j]),decp)
+  sstats[i,3]<-round(sd(characteristics[,j]),decp)
+  sstats[i,4]<-round(min(characteristics[,j]),decp)
+  sstats[i,5]<-round(max(characteristics[,j]),decp)
+ }
+ return(sstats)
+}
+
+# We may then produce the matrix of summary statistics
+
+s001<-sstatsmat(dty[,3:9]) # Creates an object with the summary statistics
+s001<-as.data.frame(s001) # Convert to data frame
+names(s001)<-c("Variable","Mean","s.d.","Min","Max")
+
+# We save the file as summarystats.csv. The file will be in your working directory.
+
+write.table(s001,"summarystats.csv",sep=",",row.names=FALSE)
+
+# To view the summary statistics we just write
+
+s001
+
+# Produce a simple scatter plot as Figure 3. You can right click and copy into the Word Document, or save the plot to your working directory to insert into a document manually.
+
+plot(dty$Deprivation2,dty$QualLevel1,pch=16,xlim=c(0,50),ylim=c(0,30),xlab="Deprivation 2 Plus",ylab="Qualification Level 1")
+
+# We create two subsets to allow the points to be coloured and identified neatly
+
+dty0<-subset(dty,dty$HL4==0)
+dty1<-subset(dty,dty$HL4==1)
+
+# We draw a graph using the two subsets
+
+plot(dty0$Deprivation2,dty0$QualLevel1,pch=16,xlim=c(0,50),ylim=c(0,30),xlab="Deprivation 2 Plus",ylab="Qualification Level 1") 
+
+points(dty1$Deprivation2,dty1$QualLevel1,pch=16,col="blue")
+leg.text=c("Quartiles 1 to 3","Upper Quartile")
+legend("bottomleft",leg.text,pch=16,col=c("black","blue"))
+
+# We can create a PNG using code:
+
+png("Deprivation2Qualification50.png")
+plot(dty0$Deprivation2,dty0$QualLevel1,pch=16,xlim=c(0,50),ylim=c(0,30),xlab="Deprivation 2 Plus",ylab="Qualification Level 1") 
+points(dty1$Deprivation2,dty1$QualLevel1,pch=16,col="blue")
+leg.text=c("Quartiles 1 to 3","Upper Quartile")
+legend("bottomleft",leg.text,pch=16,col=c("black","blue"))
+dev.off()
+
+# To allow the data to determine the ranges we plot the full dataset then add both subsets as coloured points
+
+png("Deprivation2Qualification1.png")
+plot(dty$Deprivation2,dty$QualLevel1,pch=16,xlab="Deprivation 2 Plus",ylab="Qualification Level 1") 
+points(dty0$Deprivation2,dty0$QualLevel1,pch=16,col="black")
+points(dty1$Deprivation2,dty1$QualLevel1,pch=16,col="blue")
+leg.text=c("Quartiles 1 to 3","Upper Quartile")
+legend("bottomleft",leg.text,pch=16,col=c("black","blue"))
+dev.off()
+
+##########
+# Part B #
+##########
+
+# Because TDABM uses a random selection of points it is essential to set a seed at the start of a session. In this way all results can be reproduced.
+
+set.seed(1)
+
+# First we need to create data frames of the two outcomes
+
+y1<-as.data.frame(dty$HealthLow)
+y2<-as.data.frame(dty$HL4)
+
+# Second we have the axis variables for our TDABM plots
+
+x1<-as.data.frame(cbind.data.frame(dty$QualLevel1,dty$Deprivation2,dty$Manufacturing,dty$Single,dty$SocialRental))
+
+# Normalise the axis variables. You may explore what happens if the variables are not normalised by ommitting this step and using values of the ball radius about 8 times the numbers used in this code
+
+x2<-normalize_to_min_0_max_1(x1)
+
+# We may now produce our first TDABM plot
+
+bm1<-BallMapper(x2,y1,0.33)
+
+# To ensure that the plot is recreatable let us set the seed_for_plotting parameter
+
+ColorIgraphPlot(bm1,seed_for_plotting=123)
+
+# We check the role of the radius parameter by looking at different radii
+
+bm125<-BallMapper(x2,y1,0.25)
+bm130<-BallMapper(x2,y1,0.30)
+bm135<-BallMapper(x2,y1,0.35)
+bm140<-BallMapper(x2,y1,0.40)
+bm145<-BallMapper(x2,y1,0.45)
+bm150<-BallMapper(x2,y1,0.50)
+
+# Plot these
+
+ColorIgraphPlot(bm125,seed_for_plotting=123)
+ColorIgraphPlot(bm130,seed_for_plotting=123)
+ColorIgraphPlot(bm135,seed_for_plotting=123)
+ColorIgraphPlot(bm140,seed_for_plotting=123)
+ColorIgraphPlot(bm145,seed_for_plotting=123)
+ColorIgraphPlot(bm150,seed_for_plotting=123)
+
+# To save as PNG we use the same approach as part A. We will only save the first plot, but the remainder of the plots should be saved to answer question 8
+
+png("LowHealth33.png")
+ColorIgraphPlot(bm1,seed_for_plotting=123)
+dev.off()
+
+# Next we repeat the exercise but use the dummy variable as the colouration variable
+
+bm2<-BallMapper(x2,y2,0.33)
+
+# We save the plot with radius 33 to use in comparison with LowHealth33.png
+
+png("ProportionHealthLow33.png")
+ColorIgraphPlot(bm2,seed_for_plotting=123)
+dev.off()
+
+# To colour by all variables we use the colorByAllVariables command, where the second argument is the dataset that we wish to colour by. Notice we are using x1 as it has not been normalised.
+
+colorByAllVariables(bm1,x1,"bm1axis")
+
+# To allow us to understand the points in the balls we need a user written function. Copy and paste the following into R.
+
+points_to_balls<-function(l){
+  a001<-length(l$landmarks)
+  a1<-matrix(0,nrow=a001,ncol=2)
+  a1<-as.data.frame(a1)
+  names(a1)<-c("pt","ball")
+  for(i in 1:a001){
+    a<-as.data.frame(l$points_covered_by_landmarks[i])
+    names(a)<-"pt"
+    a$ball<-i
+    a1<-rbind.data.frame(a1,a)
+   }
+  a1<-a1[2:nrow(a1),]
+  return(a1)
+}
+
+
+# We also need to add a column to the dataframe with the point number
+
+dty$pt<-seq(1:nrow(dty))
+
+# Apply the points to balls function to the TDABM plot bm1
+
+bmp1<-points_to_balls(bm1)
+
+# Then convert to data frame and merge
+
+bmp1<-as.data.frame(bmp1)
+names(bmp1)<-c("pt","ball")
+
+dtz<-merge(dty,bmp1,by="pt")
+
+# We can output this file as a csv to interrogate in Excel:
+
+write.table(dtz,"Ballmembers130.csv",sep=",",row.names=FALSE)
+
+# We may also use R to focus on specific balls:
+
+ball12<-subset(dtz,dtz$ball==12)
+
+ball12$geog
+ball12
+
+#### Solutions to the questions are available in the separate .txt file
